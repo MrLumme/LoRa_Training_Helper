@@ -1,18 +1,19 @@
 package lumCode.processingGameBase;
 
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
+import java.lang.reflect.Array;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
+import java.util.ArrayList;
 import java.util.Properties;
 
 import lumCode.interactables.entities.Button;
 import lumCode.interactables.entities.Label;
+import lumCode.interactables.entities.TextBox;
 import lumCode.processingGameBase.keys.Input;
 import lumCode.processingGameBase.keys.InputTracker;
+import lumCode.processingGameBase.lora.CaptionEntry;
 import lumCode.processingGameBase.sound.SoundKeeper;
 import lumCode.processingGameBase.sound.types.SFXType;
 import lumCode.processingGameBase.time.TimeKeeper;
@@ -27,23 +28,26 @@ public class Main extends PApplet {
 	// CONSTANTS
 	// ---------
 
-	public static final int SCREEN_WIDTH = 640;
-	public static final int SCREEN_HEIGHT = 480;
+	public static final int SCREEN_WIDTH = 1800;
+	public static final int SCREEN_HEIGHT = 600;
 	private static PApplet instance;
 
-	// --------------
-	// GAME VARIABLES
-	// --------------
+	// -----------------
+	// PROGRAM VARIABLES
+	// -----------------
 
 	public static boolean doTick = false;
 	public static Properties prop = new Properties();
+	public static PFont font;
 
-	// Example - Start
-	private static int buttonClicks = 0;
-	private static Button button;
-	private static Label label;
-	private static PFont font;
-	// Example - End
+	private static File workDir;
+
+	public static final ArrayList<CaptionEntry> captions = new ArrayList<>();
+	public static CaptionEntry currentCaption = null;
+	public static int captionId = 0;
+
+	private static Button next, prev, allKeyword;
+	private static TextBox newKeyword;
 
 	// ----
 	// MAIN
@@ -77,17 +81,39 @@ public class Main extends PApplet {
 
 		loadProperties();
 
-		// Example - Start
 		font = loadFont(Settings.FONT_PATH + "default.vlw");
-		button = new Button(SCREEN_WIDTH / 2 - 50, SCREEN_HEIGHT / 2 - 25, 100, 50, this, "Press me", font) {
-			@Override
-			public void action() {
-				SoundKeeper.playEffect(SFXType.BUTTON);
-				buttonClicks++;
+
+		selectFolder("Select LoRa image- & captionfile directory:", "loadWorkDirectory");
+		next = new Button(SCREEN_WIDTH - 90, SCREEN_HEIGHT - 40, 80, 30, instance, "Next >", font) {
+			@Override public void action() {
+				if (captionId < (captions.size() - 1)) {
+					captionId++;
+					currentCaption = captions.get(captionId);
+				}
 			}
 		};
-		label = new Label(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 50, this, "Clicked: " + buttonClicks, font);
-		// Example - End
+		next.setOver(Colors.D_GREY);
+		newKeyword = new TextBox(next.getX() - 170, next.getY(), 160, 30, instance, true, true, font);
+		prev = new Button(newKeyword.getX() - 90, next.getY(), 80, 30, instance, "< Previous", font) {
+			@Override public void action() {
+				if (captionId > 0) {
+					captionId--;
+					currentCaption = captions.get(captionId);
+				}
+			}
+		};
+		prev.setOver(Colors.D_GREY);
+		allKeyword = new Button(prev.getX() - 160, next.getY(), 120, 30, instance, "Add keyword to all", font) {
+			@Override public void action() {
+				if (!newKeyword.getText().trim().equals("")) {
+					for (CaptionEntry caption : captions) {
+						caption.addKeyword(newKeyword.getText().trim());
+					}
+					newKeyword.setText("");
+				}
+			}
+		};
+		allKeyword.setOver(Colors.D_GREY);
 
 		sk.start();
 		tk.start();
@@ -99,17 +125,16 @@ public class Main extends PApplet {
 
 	@Override
 	public void draw() {
-		background(0);
+		background(128);
 
-		// Example - Start
-		button.draw();
-		label.setText("Clicked: " + buttonClicks);
-		label.draw();
+		if (currentCaption != null) {
+			currentCaption.draw();
+			next.draw();
+			prev.draw();
+			newKeyword.draw();
+		} else {
 
-		stroke(255);
-		fill(Colors.mix(Colors.RED, Colors.GREEN, 0.5));
-		rect((float) (SCREEN_WIDTH / 2.0 - 50), (float) (SCREEN_HEIGHT / 2.0 + 100), 100, 50);
-		// Example - End
+		}
 	}
 
 	// ----
@@ -120,6 +145,9 @@ public class Main extends PApplet {
 	public void exit() {
 		super.exit();
 		saveProperties();
+		for (CaptionEntry caption : captions) {
+			caption.saveKeywords();
+		}
 	}
 
 	// -----
@@ -128,48 +156,64 @@ public class Main extends PApplet {
 
 	@Override
 	public void mouseClicked() {
-		// Example - Start
-		button.mouseClicked();
-		// Example - End
+		for (Button keyword : currentCaption.keywords) {
+			keyword.mouseClicked();
+		}
+		next.mouseClicked();
+		prev.mouseClicked();
+		newKeyword.mouseClicked();
 	}
 
 	@Override
 	public void mousePressed() {
-		if (mouseButton == PConstants.LEFT) {
-			InputTracker.state(Input.INTERACT, true);
-		}
 	}
 
 	@Override
 	public void mouseReleased() {
-		if (mouseButton == PConstants.LEFT) {
-			InputTracker.state(Input.INTERACT, false);
-		}
 	}
 
 	@Override
 	public void keyPressed() {
-		if (key == 'a' || keyCode == PConstants.LEFT) {
-			InputTracker.state(Input.LEFT, true);
-		} else if (key == 'w' || keyCode == PConstants.UP) {
-			InputTracker.state(Input.UP, true);
-		} else if (key == 'd' || keyCode == PConstants.RIGHT) {
-			InputTracker.state(Input.RIGHT, true);
-		} else if (key == 's' || keyCode == PConstants.DOWN) {
-			InputTracker.state(Input.DOWN, true);
+		if (keyCode == PConstants.ENTER) {
+			InputTracker.state(Input.SUBMIT, true);
+		}
+
+		newKeyword.keyTyped();
+		newKeyword.keyPressed();
+
+		if (InputTracker.getState(Input.SUBMIT)) {
+			if (currentCaption != null) {
+				if (!newKeyword.getText().trim().equals("")) {
+					currentCaption.addKeyword(newKeyword.getText().trim());
+					newKeyword.setText("");
+				}
+			}
 		}
 	}
 
 	@Override
 	public void keyReleased() {
-		if (key == 'a' || keyCode == PConstants.LEFT) {
-			InputTracker.state(Input.LEFT, false);
-		} else if (key == 'w' || keyCode == PConstants.UP) {
-			InputTracker.state(Input.UP, false);
-		} else if (key == 'd' || keyCode == PConstants.RIGHT) {
-			InputTracker.state(Input.RIGHT, false);
-		} else if (key == 's' || keyCode == PConstants.DOWN) {
-			InputTracker.state(Input.DOWN, false);
+		if (keyCode == PConstants.ENTER) {
+			InputTracker.state(Input.SUBMIT, false);
+		}
+	}
+
+	public void loadWorkDirectory(File file) throws IOException {
+		if (file == null) {
+			return;
+		}
+
+		workDir = file;
+
+		for (File imgFile : workDir.listFiles()) {
+			if (imgFile.isFile() && imgFile.getName().endsWith(".png")) {
+				File kwFile = new File(imgFile.getAbsolutePath().replace(".png", ".txt"));
+				captions.add(new CaptionEntry(imgFile, kwFile, this));
+			}
+		}
+
+		if (!captions.isEmpty()) {
+			currentCaption = captions.get(0);
 		}
 	}
 

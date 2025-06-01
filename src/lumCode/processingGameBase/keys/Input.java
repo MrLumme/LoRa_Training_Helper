@@ -10,5 +10,5 @@ package lumCode.processingGameBase.keys;
 
 public enum Input {
 
-	LEFT, RIGHT, UP, DOWN, INTERACT;
+	SUBMIT;
 }

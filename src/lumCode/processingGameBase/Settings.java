@@ -12,4 +12,6 @@ public class Settings {
 	public static final int SFX_LIMIT = 10;
 	public static final long SOUND_DELAY = 100;
 
+	public static final int FONT_SIZE = 12;
+
 }
