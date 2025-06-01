@@ -132,6 +132,7 @@ public class Main extends PApplet {
 			next.draw();
 			prev.draw();
 			newKeyword.draw();
+			allKeyword.draw();
 		} else {
 
 		}
@@ -162,6 +163,7 @@ public class Main extends PApplet {
 		next.mouseClicked();
 		prev.mouseClicked();
 		newKeyword.mouseClicked();
+		allKeyword.mouseClicked();
 	}
 
 	@Override
