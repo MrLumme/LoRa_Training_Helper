@@ -1,7 +1,6 @@
 package lumCode.processingGameBase;
 
 import java.io.*;
-import java.lang.reflect.Array;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
@@ -9,14 +8,13 @@ import java.util.ArrayList;
 import java.util.Properties;
 
 import lumCode.interactables.entities.Button;
-import lumCode.interactables.entities.Label;
 import lumCode.interactables.entities.TextBox;
 import lumCode.processingGameBase.keys.Input;
 import lumCode.processingGameBase.keys.InputTracker;
 import lumCode.processingGameBase.lora.CaptionEntry;
 import lumCode.processingGameBase.sound.SoundKeeper;
-import lumCode.processingGameBase.sound.types.SFXType;
 import lumCode.processingGameBase.time.TimeKeeper;
+import lumCode.processingGameBase.time.Trigger;
 import lumCode.utils.ExMath;
 import processing.core.PApplet;
 import processing.core.PConstants;
@@ -28,8 +26,8 @@ public class Main extends PApplet {
 	// CONSTANTS
 	// ---------
 
-	public static final int SCREEN_WIDTH = 1800;
-	public static final int SCREEN_HEIGHT = 600;
+	public static final int SCREEN_WIDTH = 1200;
+	public static final int SCREEN_HEIGHT = 520;
 	private static PApplet instance;
 
 	// -----------------
@@ -88,6 +86,7 @@ public class Main extends PApplet {
 			@Override public void action() {
 				if (captionId < (captions.size() - 1)) {
 					captionId++;
+					currentCaption.saveKeywords();
 					currentCaption = captions.get(captionId);
 				}
 			}
@@ -96,27 +95,37 @@ public class Main extends PApplet {
 		newKeyword = new TextBox(next.getX() - 170, next.getY(), 160, 30, instance, true, true, font);
 		prev = new Button(newKeyword.getX() - 90, next.getY(), 80, 30, instance, "< Previous", font) {
 			@Override public void action() {
-				if (captionId > 0) {
-					captionId--;
-					currentCaption = captions.get(captionId);
-				}
+				previousCaption();
 			}
 		};
 		prev.setOver(Colors.D_GREY);
-		allKeyword = new Button(prev.getX() - 160, next.getY(), 120, 30, instance, "Add keyword to all", font) {
+		allKeyword = new Button(prev.getX() - 200, next.getY(), 160, 30, instance, "Add keyword to all", font) {
 			@Override public void action() {
-				if (!newKeyword.getText().trim().equals("")) {
-					for (CaptionEntry caption : captions) {
-						caption.addKeyword(newKeyword.getText().trim());
-					}
-					newKeyword.setText("");
-				}
+				nextCaption();
 			}
 		};
 		allKeyword.setOver(Colors.D_GREY);
+		allKeyword.setDisabled(true);
 
 		sk.start();
 		tk.start();
+		tk.addTrigger(new Trigger() {
+			@Override public boolean condition() {
+				boolean allLoaded = true;
+				for (CaptionEntry caption : captions) {
+					if (!caption.imageLoaded()) {
+						allLoaded = false;
+					}
+				}
+				return allLoaded;
+			}
+
+			@Override public void action() {
+				allKeyword.setDisabled(false);
+			}
+		});
+
+		doTick = true;
 	}
 
 	// ----
@@ -147,7 +156,9 @@ public class Main extends PApplet {
 		super.exit();
 		saveProperties();
 		for (CaptionEntry caption : captions) {
-			caption.saveKeywords();
+			if (caption.isChanged() && caption.imageLoaded()) {
+				caption.saveKeywords();
+			}
 		}
 	}
 
@@ -157,13 +168,6 @@ public class Main extends PApplet {
 
 	@Override
 	public void mouseClicked() {
-		for (Button keyword : currentCaption.keywords) {
-			keyword.mouseClicked();
-		}
-		next.mouseClicked();
-		prev.mouseClicked();
-		newKeyword.mouseClicked();
-		allKeyword.mouseClicked();
 	}
 
 	@Override
@@ -172,12 +176,25 @@ public class Main extends PApplet {
 
 	@Override
 	public void mouseReleased() {
+		for (Button keyword : currentCaption.keywords) {
+			if (keyword.mouseClicked()) {
+				break;
+			}
+		}
+		next.mouseClicked();
+		prev.mouseClicked();
+		newKeyword.mouseClicked();
+		allKeyword.mouseClicked();
 	}
 
 	@Override
 	public void keyPressed() {
 		if (keyCode == PConstants.ENTER) {
 			InputTracker.state(Input.SUBMIT, true);
+		} else if (keyCode == PConstants.LEFT) {
+			InputTracker.state(Input.PREVIOUS, true);
+		} else if (keyCode == PConstants.RIGHT) {
+			InputTracker.state(Input.NEXT, true);
 		}
 
 		newKeyword.keyTyped();
@@ -190,6 +207,10 @@ public class Main extends PApplet {
 					newKeyword.setText("");
 				}
 			}
+		} else if (InputTracker.getState(Input.PREVIOUS)) {
+			previousCaption();
+		} else if (InputTracker.getState(Input.NEXT)) {
+			nextCaption();
 		}
 	}
 
@@ -197,6 +218,10 @@ public class Main extends PApplet {
 	public void keyReleased() {
 		if (keyCode == PConstants.ENTER) {
 			InputTracker.state(Input.SUBMIT, false);
+		} else if (keyCode == PConstants.LEFT) {
+			InputTracker.state(Input.PREVIOUS, false);
+		} else if (keyCode == PConstants.RIGHT) {
+			InputTracker.state(Input.NEXT, false);
 		}
 	}
 
@@ -266,4 +291,23 @@ public class Main extends PApplet {
 		}
 	}
 
+	public boolean nextCaption() {
+		if (captionId < (captions.size() - 1)) {
+			captionId++;
+			currentCaption.saveKeywords();
+			currentCaption = captions.get(captionId);
+			return true;
+		}
+		return false;
+	}
+
+	public boolean previousCaption() {
+		if (captionId > 0) {
+			captionId--;
+			currentCaption.saveKeywords();
+			currentCaption = captions.get(captionId);
+			return true;
+		}
+		return false;
+	}
 }

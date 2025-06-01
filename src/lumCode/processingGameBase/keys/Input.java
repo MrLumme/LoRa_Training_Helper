@@ -10,5 +10,5 @@ package lumCode.processingGameBase.keys;
 
 public enum Input {
 
-	SUBMIT;
+	SUBMIT, PREVIOUS, NEXT;
 }
